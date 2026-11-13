@@ -1,0 +1,69 @@
+{#def
+    settings: MatchingSettings,
+#}
+
+<form id="matching-settings"
+      class="flex flex-col gap-2"
+      hx-post="{{ base_url }}/settings/matching/hx-form"
+      hx-disabled-elt="#matching-save-button"
+      hx-target="this"
+      hx-swap="outerHTML">
+    <h3 class="text-lg">
+        Automatic download matching
+    </h3>
+    <div class="w-full flex items-center justify-between gap-2 border-t pt-2 border-base-200">
+        <label for="match-strict">
+            Strict matching
+        </label>
+        <input id="match-strict"
+               name="strict"
+               type="checkbox"
+               class="checkbox"
+               {% if settings.strict %}checked{% endif %} />
+    </div>
+    <p class="text-xs opacity-60">
+        An automatic download only grabs a release whose name contains the whole book title and the surname of an author. A release that names a different narrator is never grabbed. With this off, the best ranked result is downloaded even if nothing really matches.
+    </p>
+    <div class="w-full flex items-center justify-between gap-2 border-t pt-2 border-base-200">
+        <label for="match-fallback-search">
+            Fallback search
+        </label>
+        <input id="match-fallback-search"
+               name="fallback_search"
+               type="checkbox"
+               class="checkbox"
+               {% if settings.fallback_search %}checked{% endif %} />
+    </div>
+    <p class="text-xs opacity-60">
+        When the full title finds no strict match, search again with the short title plus the narrator, then the short title plus the author.
+    </p>
+    <div class="w-full flex items-center justify-between gap-2 border-t pt-2 border-base-200">
+        <label for="match-require-narrator">
+            Require narrator
+        </label>
+        <input id="match-require-narrator"
+               name="require_narrator"
+               type="checkbox"
+               class="checkbox"
+               {% if settings.require_narrator %}checked{% endif %} />
+    </div>
+    <p class="text-xs opacity-60">
+        The release must also name one of the requested narrators. With this off, a release that does not say who narrates it is accepted.
+    </p>
+    <div class="w-full flex items-center justify-between gap-2 border-t pt-2 border-base-200">
+        <label for="match-allow-unverified-narrator">
+            Allow unverified narrator in fallback
+        </label>
+        <input id="match-allow-unverified-narrator"
+               name="allow_unverified_narrator"
+               type="checkbox"
+               class="checkbox"
+               {% if settings.allow_unverified_narrator %}checked{% endif %} />
+    </div>
+    <p class="text-xs opacity-60">
+        A title plus author fallback search cannot tell narrators apart. With this off, such a hit is left for manual review when the request names a narrator.
+    </p>
+    <button id="matching-save-button" type="submit" class="btn btn-primary">
+        Save
+    </button>
+</form>

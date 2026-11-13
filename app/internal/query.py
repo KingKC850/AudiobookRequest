@@ -13,6 +13,7 @@ from app.internal.audiobookshelf.config import abs_config
 from app.internal.chaptarr.client import ChaptarrError, start_chaptarr_download
 from app.internal.chaptarr.config import chaptarr_config
 from app.internal.download_backend import get_download_backend
+from app.internal.matching.auto import choose_auto_download
 from app.internal.models import Audiobook, ManualBookRequest, ProwlarrSource
 from app.internal.prowlarr.prowlarr import (
     DownloadFailed,
@@ -125,15 +126,25 @@ async def query_sources(
         ranked = await rank_sources(session, client_session, sources, book, is_manual)
 
         # start download if requested
-        if start_auto_download and not book.fulfilled and len(ranked) > 0:
+        if start_auto_download and not book.fulfilled:
+            pick = await choose_auto_download(
+                session, client_session, book, ranked, force_refresh
+            )
+            if pick.source is None:
+                if pick.strict:
+                    raise HTTPException(
+                        status_code=404,
+                        detail=f"No release matched this book: {pick.note}",
+                    )
+                return QueryResult(sources=ranked, book=book, state="ok")
             try:
                 await start_download(
                     session=session,
                     client_session=client_session,
-                    guid=ranked[0].guid,
-                    indexer_id=ranked[0].indexer_id,
+                    guid=pick.source.guid,
+                    indexer_id=pick.source.indexer_id,
                     asin_or_uuid=asin_or_uuid,
-                    prowlarr_source=ranked[0],
+                    prowlarr_source=pick.source,
                 )
             except DownloadFailed as e:
                 raise HTTPException(status_code=500, detail=e.message) from e

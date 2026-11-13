@@ -4,6 +4,7 @@ from app.routers.api.settings.account import router as account_router
 from app.routers.api.settings.audiobookshelf import router as audiobookshelf_router
 from app.routers.api.settings.chaptarr import router as chaptarr_router
 from app.routers.api.settings.download import router as download_router
+from app.routers.api.settings.matching import router as matching_router
 from app.routers.api.settings.notifications import router as notifications_router
 from app.routers.api.settings.prowlarr import router as prowlarr_router
 from app.routers.api.settings.security import router as security_router
@@ -14,6 +15,7 @@ router.include_router(audiobookshelf_router)
 router.include_router(chaptarr_router)
 router.include_router(account_router)
 router.include_router(download_router)
+router.include_router(matching_router)
 router.include_router(notifications_router)
 router.include_router(prowlarr_router)
 router.include_router(security_router)

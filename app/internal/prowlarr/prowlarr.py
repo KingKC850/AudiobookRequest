@@ -254,8 +254,9 @@ async def query_prowlarr(
     indexer_ids: list[int] | None = None,
     force_refresh: bool = False,
     only_return_if_cached: bool = False,
+    query_override: str | None = None,
 ) -> list[ProwlarrSource] | None:
-    query = book.title
+    query = query_override or book.title
 
     base_url = prowlarr_config.get_base_url(session)
     api_key = prowlarr_config.get_api_key(session)

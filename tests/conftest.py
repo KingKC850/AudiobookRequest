@@ -44,6 +44,7 @@ from app.internal.chaptarr.config import chaptarr_config
 from app.internal.download_backend import download_backend_config, set_download_backend
 from app.internal.indexers.configuration import indexer_configuration_cache
 from app.internal.indexers.mam import MamIndexer
+from app.internal.matching.config import match_config
 from app.internal.models import (
     Audiobook,
     AudiobookRequest,
@@ -75,6 +76,7 @@ def _flush_caches() -> None:
     prowlarr_config.flush()
     quality_config.flush()
     indexer_configuration_cache.flush()
+    match_config.flush()
     prowlarr_source_cache.flush()
     prowlarr_indexer_cache.flush()
     search_cache.clear()
@@ -133,6 +135,9 @@ def _seed() -> None:
         session.commit()
 
         auth_config.set_login_type(session, LoginTypeEnum.basic)
+        # The mock releases do not name an author, so they never match strictly.
+        # Tests of strict matching turn it back on themselves.
+        match_config.set_strict(session, False)
         auth_config.get_auth_secret(session)
 
 
