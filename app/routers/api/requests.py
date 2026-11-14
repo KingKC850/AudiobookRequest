@@ -42,6 +42,7 @@ from app.internal.prowlarr.prowlarr import DownloadFailed, start_download
 from app.internal.prowlarr.util import ProwlarrMisconfigured, prowlarr_config
 from app.internal.query import QueryResult, background_start_query, query_sources
 from app.internal.ranking.quality import quality_config
+from app.internal.retry.manual import record_manual_grab
 from app.util.censor import censor
 from app.util.connection import get_connection
 from app.util.db import get_session
@@ -506,6 +507,7 @@ async def download_book(
         raise HTTPException(status_code=500, detail=e.message) from e
     except ProwlarrMisconfigured as e:
         raise HTTPException(status_code=500, detail=str(e)) from e
+    record_manual_grab(session, asin_or_uuid, body.guid, body.indexer_id)
 
     if abs_config.is_valid(session):
         background_task.add_task(background_abs_trigger_scan)

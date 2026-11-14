@@ -121,7 +121,12 @@
                             </span>
                         </a>
                     </div>
-                    <div class="flex-none flex pr-4">
+                    <div class="flex-none flex items-center pr-4">
+                        {% if user.is_admin() %}
+                            <span hx-get="{{ base_url }}/wishlist/stages/hx-badge"
+                                  hx-trigger="load"
+                                  hx-swap="outerHTML"></span>
+                        {% endif %}
                         <button class="btn btn-ghost btn-square light-dark-toggle"
                                 onclick="toggleTheme()">
                             <script>

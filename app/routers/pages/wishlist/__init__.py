@@ -20,30 +20,23 @@ from app.util.connection import get_connection
 from app.util.db import get_session
 from app.util.templates import catalog_response
 
-from . import fulfilled, manual, sources
+from . import fulfilled, manual, sources, stages
 
 router = APIRouter(prefix="/wishlist")
 
 router.include_router(fulfilled.router)
 router.include_router(manual.router)
 router.include_router(sources.router)
+router.include_router(stages.router)
 
 
 @router.get("")
 async def wishlist(
     session: Annotated[Session, Depends(get_session)],
     user: Annotated[DetailedUser, Security(ABRAuth())],
+    stage: str | None = None,
 ):
-    username = None if user.is_admin() else user.username
-    results = get_wishlist_results(session, username, "not_fulfilled")
-    counts = get_wishlist_counts(session, user)
-    return catalog_response(
-        "Wishlist.Index",
-        user=user,
-        results=results,
-        counts=counts,
-        show_sources=get_download_backend(session) == "prowlarr",
-    )
+    return stages.render_stage_page(session, user, stage)
 
 
 @router.post("/hx-auto-download/{asin}")

@@ -56,6 +56,8 @@ class AudibleProduct(BaseModel):
     release_date: str
     title: str
     subtitle: str | None = None
+    language: str | None = None
+    """Only present when the `product_attrs` response group is requested."""
 
     def to_audiobook(self) -> Audiobook:
         cover_image = self.product_images.get("500")
@@ -78,6 +80,35 @@ class AudibleProduct(BaseModel):
             release_date=release_date,
             runtime_length_min=self.runtime_length_min,
         )
+
+
+# Languages each Audible store is expected to show. A store's catalog also lists
+# editions in other languages (the US store has German translations, for
+# example), which only add noise to search results.
+region_languages: dict[audible_region_type, set[str]] = {
+    "us": {"english"},
+    "ca": {"english", "french"},
+    "uk": {"english"},
+    "au": {"english"},
+    "fr": {"french"},
+    "de": {"german"},
+    "jp": {"japanese"},
+    "it": {"italian"},
+    "in": {"english", "hindi"},
+    "es": {"spanish"},
+    "br": {"portuguese"},
+}
+
+
+def in_region_language(
+    products: list[AudibleProduct], region: audible_region_type
+) -> list[AudibleProduct]:
+    """Drops editions in a language the store's region does not speak.
+    Products that do not say their language are kept."""
+    allowed = region_languages.get(region)
+    if not allowed:
+        return products
+    return [p for p in products if not p.language or p.language.lower() in allowed]
 
 
 class _Response(BaseModel, metaclass=ABCMeta):

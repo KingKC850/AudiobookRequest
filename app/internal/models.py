@@ -9,6 +9,8 @@ from sqlmodel import JSON, Column, DateTime, Field, SQLModel, Text, func
 from sqlmodel._compat import SQLModelConfig
 from sqlmodel.main import Relationship
 
+from app.internal.library.index import library_index
+
 
 class BaseSQLModel(SQLModel):
     pass
@@ -97,6 +99,11 @@ class Audiobook(BaseSQLModel, table=True):
     @property
     def runtime_length_hrs(self):
         return round(self.runtime_length_min / 60, 1)
+
+    @property
+    def in_library(self) -> bool:
+        """The book is already in the Audiobookshelf library, requested or not."""
+        return library_index.owns(self.asin, self.title, self.authors)
 
 
 class AudiobookWithRequests(BaseModel):

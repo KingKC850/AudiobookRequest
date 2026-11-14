@@ -146,6 +146,13 @@ def test_closest_edition_wins_and_ranked_order_breaks_ties() -> None:
     assert result == [plain_a, plain_b, wordy, full_cast]
 
 
+def test_release_with_the_whole_title_beats_one_with_only_the_series() -> None:
+    book = _book("Star Wars: Thrawn", ["Timothy Zahn"])
+    other = _torrent("Timothy Zahn - Star Wars - Heir to the Empire")
+    right = _torrent("Timothy Zahn - Star Wars - Thrawn (Unabridged)")
+    assert strict_matches(book, [other, right]) == [right, other]
+
+
 def test_minimum_seeders_only_applies_to_torrents() -> None:
     book = _book("Dune", ["Frank Herbert"])
     dead = _torrent("Frank Herbert - Dune", seeders=1)

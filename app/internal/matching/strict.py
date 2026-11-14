@@ -11,90 +11,32 @@ narrator than the requested one is a different edition and never matches.
 """
 
 import re
-import unicodedata
 
+from app.internal.matching.text import (
+    core_title,
+    full_title_regex,
+    norm,
+    person,
+    query_title,
+    surnames,
+    title_regex,
+)
 from app.internal.models import Audiobook, ManualBookRequest, ProwlarrSource
+
+__all__ = [
+    "Book",
+    "core_title",
+    "norm",
+    "person",
+    "query_title",
+    "strict_matches",
+    "surnames",
+    "title_regex",
+]
 
 type Book = Audiobook | ManualBookRequest
 
-_CENSORED = re.compile(r"\w[-*]+\w")
-_ROLE_SUFFIX = re.compile(r"\s+-\s+")
-_SUBTITLE = re.compile(r"\s+-\s+|:\s")
 _BY = re.compile(r"\s+by\s+")
-
-
-def norm(text: str | None) -> str:
-    """Lowercase, fold accents (Phönix -> phonix), punctuation to spaces.
-
-    The result is padded with a space on both sides so that `f" {word} " in`
-    only matches whole words.
-    """
-    text = unicodedata.normalize("NFKD", text or "")
-    text = "".join(c for c in text if not unicodedata.combining(c))
-    text = text.replace("ß", "ss").lower()
-    text = re.sub(r"[^a-z0-9]+", " ", text)
-    return f" {' '.join(text.split())} "
-
-
-def core_title(title: str | None) -> str:
-    """Title without its subtitle.
-
-    'Yesteryear: A GMA Book Club Pick' -> 'Yesteryear'
-    'Harry Potter ... - Gesprochen von Rufus Beck' -> 'Harry Potter ...'
-    """
-    title = title or ""
-    return _SUBTITLE.split(title, maxsplit=1)[0].strip() or title
-
-
-def person(name: str | None) -> str:
-    """Name without an ' - illustrator' style role suffix."""
-    return _ROLE_SUFFIX.split(name or "", maxsplit=1)[0].strip()
-
-
-def surnames(people: list[str] | None) -> list[str]:
-    """Normalized last word of each name."""
-    out: list[str] = []
-    for p in people or []:
-        parts = norm(person(p)).split()
-        if parts and len(parts[-1]) > 1:
-            out.append(parts[-1])
-    return out
-
-
-def title_regex(title: str | None) -> re.Pattern[str] | None:
-    """Whole-phrase matcher for a normalized haystack.
-
-    A censored word such as 'F--k' or 'Sh*t' matches any word with the same
-    first and last letters. Returns None when the title has no usable words.
-    """
-    parts: list[str] = []
-    for word in core_title(title).split():
-        if _CENSORED.search(word):
-            bits = [norm(b).strip().replace(" ", "") for b in re.split(r"[-*]+", word)]
-            parts.append("[a-z0-9]*".join(re.escape(b) for b in bits))
-        else:
-            # one word can normalize into several ("Friend's" -> "friend s")
-            parts.extend(re.escape(w) for w in norm(word).split())
-    if not parts:
-        return None
-    return re.compile(" " + " ".join(parts) + " ")
-
-
-def query_title(title: str | None) -> str:
-    """Search-friendly title: subtitle, censored words and punctuation dropped.
-
-    Words with apostrophes ("Friend's") are dropped as well, since indexers
-    tokenize them unpredictably. The strict match on the results still checks
-    the full title.
-    """
-    words: list[str] = []
-    for w in core_title(title).split():
-        if _CENSORED.search(w) or re.search(r"['’]", w):
-            continue
-        w = re.sub(r"[^\w\s-]", "", w).strip("-")
-        if w:
-            words.append(w)
-    return " ".join(words)
 
 
 def strict_matches(
@@ -115,12 +57,13 @@ def strict_matches(
     """
     title = norm(core_title(book.title)).strip()
     title_re = title_regex(book.title)
+    full_re = full_title_regex(book.title)
     authors = surnames(book.authors)
     narrators = surnames(book.narrators)
     if not title or title_re is None or not authors:
         return []
 
-    matches: list[tuple[tuple[bool, int, int], ProwlarrSource]] = []
+    matches: list[tuple[tuple[bool, bool, int, int], ProwlarrSource]] = []
     for source in sources:
         meta = source.book_metadata
         hay = norm(" ".join([source.title, *meta.authors, *meta.narrators]))
@@ -145,13 +88,19 @@ def strict_matches(
         if source.protocol == "torrent" and source.seeders < min_seeders:
             continue
 
-        # Prefer the closest edition: fewest narrators that were not asked for
+        # A title like "Star Wars: Thrawn" shortens to "Star Wars", which every
+        # book of that series matches. A release naming the whole title wins.
+        whole_title = bool(full_re and full_re.search(hay))
+
+        # Then prefer the closest edition: fewest narrators that were not asked for
         # (full-cast versions lose), then fewest extra words in the release
         # title ("... (Hörbuch mit voller Besetzung)" loses).
         extra_narrators = len([n for n in release_narrators if n not in narrators])
         release_title = norm(_BY.split(source.title, maxsplit=1)[0])
         extra_words = max(0, len(release_title.split()) - len(title.split()))
-        matches.append(((narrator_ok, -extra_narrators, -extra_words), source))
+        matches.append(
+            ((whole_title, narrator_ok, -extra_narrators, -extra_words), source)
+        )
 
     # sort() is stable, so equally close editions keep their ranked order
     matches.sort(key=lambda m: m[0], reverse=True)

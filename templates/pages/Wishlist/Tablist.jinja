@@ -3,25 +3,83 @@
     counts: WishlistCounts,
 #}
 
+{# counts.approvals is only set for admins #}
+{% set is_admin = counts.approvals is not none %}
+
 <div id="tablist" hx-swap-oob="True" role="tablist" class="tabs tabs-box">
+    {% if not is_admin %}
+        <a preload
+           href="{{ base_url }}/wishlist?stage=all"
+           role="tab"
+           class="tab {% if page=='all' %}tab-active{% endif %}">
+            All
+            <p class="absolute badge badge-xs right-0 top-0">
+                {{ counts.total }}
+            </p>
+        </a>
+    {% endif %}
     <a preload
-       href="{{ base_url }}/wishlist"
+       href="{{ base_url }}/wishlist?stage=pending"
        role="tab"
-       class="tab {% if page=='wishlist' %}tab-active{% endif %} relativ">
-        Requests
+       class="tab {% if page=='pending' %}tab-active{% endif %}">
+        {% if is_admin %}
+            Needs approval
+        {% else %}
+            Waiting for approval
+        {% endif %}
         <p class="absolute badge badge-xs right-0 top-0">
-            {{ counts.requests }}
+            {{ counts.pending }}
         </p>
     </a>
     <a preload
-       href="{{ base_url }}/wishlist/fulfilled"
+       href="{{ base_url }}/wishlist?stage=searching"
        role="tab"
-       class="tab {% if page=='fulfilled' %}tab-active{% endif %}">
-        Fulfilled
+       class="tab {% if page=='searching' %}tab-active{% endif %}">
+        Searching
         <p class="absolute badge badge-xs right-0 top-0">
-            {{ counts.fulfilled }}
+            {{ counts.searching }}
         </p>
     </a>
+    <a preload
+       href="{{ base_url }}/wishlist?stage=downloading"
+       role="tab"
+       class="tab {% if page=='downloading' %}tab-active{% endif %}">
+        Downloading
+        <p class="absolute badge badge-xs right-0 top-0">
+            {{ counts.downloading }}
+        </p>
+    </a>
+    <a preload
+       href="{{ base_url }}/wishlist?stage=library"
+       role="tab"
+       class="tab {% if page=='library' %}tab-active{% endif %}">
+        In library
+        <p class="absolute badge badge-xs right-0 top-0">
+            {{ counts.library }}
+        </p>
+    </a>
+    {% if counts.declined > 0 or page=='declined' %}
+        <a preload
+           href="{{ base_url }}/wishlist?stage=declined"
+           role="tab"
+           class="tab {% if page=='declined' %}tab-active{% endif %}">
+            Declined
+            <p class="absolute badge badge-xs right-0 top-0">
+                {{ counts.declined }}
+            </p>
+        </a>
+    {% endif %}
+    {% if is_admin %}
+        <a preload
+           href="{{ base_url }}/wishlist?stage=all"
+           role="tab"
+           class="tab {% if page=='all' %}tab-active{% endif %}">
+            All
+            <p class="absolute badge badge-xs right-0 top-0">
+                {{ counts.total }}
+            </p>
+        </a>
+    {% endif %}
     <a preload
        href="{{ base_url }}/wishlist/manual"
        role="tab"

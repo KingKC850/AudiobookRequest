@@ -10,6 +10,7 @@ from . import (
     matching,
     notification,
     prowlarr,
+    retry,
     security,
     users,
 )
@@ -25,5 +26,6 @@ router.include_router(logs.router)
 router.include_router(matching.router)
 router.include_router(notification.router)
 router.include_router(prowlarr.router)
+router.include_router(retry.router)
 router.include_router(security.router)
 router.include_router(users.router)

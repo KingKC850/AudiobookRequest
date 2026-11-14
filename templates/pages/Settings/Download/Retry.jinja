@@ -1,0 +1,80 @@
+{#def
+    settings: RetrySettings,
+#}
+
+<form id="retry-settings"
+      class="flex flex-col gap-2"
+      hx-post="{{ base_url }}/settings/retry/hx-form"
+      hx-disabled-elt="#retry-save-button"
+      hx-target="this"
+      hx-swap="outerHTML">
+    <h3 class="text-lg">
+        Automatic retry
+    </h3>
+    <div class="w-full flex items-center justify-between gap-2 border-t pt-2 border-base-200">
+        <label for="retry-enabled">
+            Search again for requests that were not found
+        </label>
+        <input id="retry-enabled"
+               name="enabled"
+               type="checkbox"
+               class="checkbox"
+               {% if settings.enabled %}checked{% endif %} />
+    </div>
+    <p class="text-xs opacity-60">
+        Open requests from trusted users and admins, and requests an admin approved, are searched again on a schedule until a release is found. Requests from untrusted users wait on the
+        <a class="link" href="{{ base_url }}/wishlist?stage=pending">Needs approval</a>
+        tab. Needs strict matching to be on.
+    </p>
+    <div class="w-full flex items-center justify-between">
+        <label for="retry-min-hours">
+            Hours between tries for the same book
+        </label>
+        <input id="retry-min-hours"
+               name="min_hours"
+               type="number"
+               min="1"
+               class="input"
+               placeholder="20"
+               value="{{ settings.min_hours }}" />
+    </div>
+    <div class="w-full flex items-center justify-between">
+        <label for="retry-delay-seconds">
+            Seconds to wait between two books
+        </label>
+        <input id="retry-delay-seconds"
+               name="delay_seconds"
+               type="number"
+               min="0"
+               class="input"
+               placeholder="20"
+               value="{{ settings.delay_seconds }}" />
+    </div>
+    <div class="w-full flex items-center justify-between">
+        <label for="retry-max-per-run">
+            Most books per run <span class="text-xs opacity-60">(0 = no limit)</span>
+        </label>
+        <input id="retry-max-per-run"
+               name="max_per_run"
+               type="number"
+               min="0"
+               class="input"
+               placeholder="0"
+               value="{{ settings.max_per_run }}" />
+    </div>
+    <div class="w-full flex items-center justify-between">
+        <label for="retry-stuck-days">
+            Days before a download that has not reached the library is flagged as stuck
+        </label>
+        <input id="retry-stuck-days"
+               name="stuck_days"
+               type="number"
+               min="1"
+               class="input"
+               placeholder="3"
+               value="{{ settings.stuck_days }}" />
+    </div>
+    <button id="retry-save-button" type="submit" class="btn btn-primary">
+        Save
+    </button>
+</form>

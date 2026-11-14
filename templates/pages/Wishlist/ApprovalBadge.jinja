@@ -1,0 +1,13 @@
+{#def
+    count: int,
+#}
+
+{% if count > 0 %}
+    <a preload
+       href="{{ base_url }}/wishlist?stage=pending"
+       class="btn btn-sm btn-warning"
+       title="Requests waiting for your approval">
+        Needs approval
+        <span class="badge badge-sm">{{ count }}</span>
+    </a>
+{% endif %}

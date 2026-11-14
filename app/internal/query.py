@@ -1,5 +1,6 @@
 import uuid
 from contextlib import contextmanager
+from datetime import UTC, datetime
 from typing import Literal
 
 import aiohttp
@@ -22,6 +23,7 @@ from app.internal.prowlarr.prowlarr import (
 )
 from app.internal.prowlarr.util import prowlarr_config
 from app.internal.ranking.download_ranking import rank_sources
+from app.internal.retry.state import GrabInfo, retry_config
 from app.util.db import get_session
 from app.util.log import logger
 
@@ -127,14 +129,19 @@ async def query_sources(
 
         # start download if requested
         if start_auto_download and not book.fulfilled:
+            title = book.title
             pick = await choose_auto_download(
                 session, client_session, book, ranked, force_refresh
             )
             if pick.source is None:
+                note = pick.note or "no results"
+                retry_config.record_attempt(
+                    session, asin_or_uuid, title, f"no match: {note}"
+                )
                 if pick.strict:
                     raise HTTPException(
                         status_code=404,
-                        detail=f"No release matched this book: {pick.note}",
+                        detail=f"No release matched this book: {note}",
                     )
                 return QueryResult(sources=ranked, book=book, state="ok")
             try:
@@ -147,7 +154,23 @@ async def query_sources(
                     prowlarr_source=pick.source,
                 )
             except DownloadFailed as e:
+                retry_config.record_attempt(
+                    session, asin_or_uuid, title, f"download failed: {e.message}"
+                )
                 raise HTTPException(status_code=500, detail=e.message) from e
+            retry_config.record_attempt(
+                session,
+                asin_or_uuid,
+                title,
+                f"grabbed: {pick.source.title}",
+                GrabInfo(
+                    release=pick.source.title,
+                    indexer=pick.source.indexer,
+                    info_url=pick.source.info_url,
+                    query=pick.query,
+                    when=datetime.now(UTC),
+                ),
+            )
 
             # Try to trigger an ABS scan to pick up new media
             try:

@@ -1,0 +1,17 @@
+{#def
+    user: DetailedUser,
+    view: str,
+    rows: list[StageRow],
+    submitters: list[str],
+    counts: WishlistCounts,
+    running: bool,
+    strict: bool,
+    retry_enabled: bool,
+    can_check: bool,
+    show_sources: bool,
+    update_tablist = False, # unused here: the page already has its tablist
+#}
+
+<WishlistLayout title="Wishlist" user={{ user }} counts={{ counts }} page={{ view }}>
+<Wishlist.StageContent user={{ user }} view={{ view }} rows={{ rows }} submitters={{ submitters }} counts={{ counts }} running={{ running }} strict={{ strict }} retry_enabled={{ retry_enabled }} can_check={{ can_check }} show_sources={{ show_sources }} />
+</WishlistLayout>

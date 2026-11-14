@@ -57,6 +57,7 @@ from app.internal.prowlarr.util import (
     prowlarr_source_cache,
 )
 from app.internal.ranking.quality import quality_config
+from app.internal.retry.state import retry_config
 from app.util.db import engine
 from tests.constants import ASIN, FULFILLED_ASIN, MANUAL_ID
 
@@ -77,6 +78,7 @@ def _flush_caches() -> None:
     quality_config.flush()
     indexer_configuration_cache.flush()
     match_config.flush()
+    retry_config.flush()
     prowlarr_source_cache.flush()
     prowlarr_indexer_cache.flush()
     search_cache.clear()

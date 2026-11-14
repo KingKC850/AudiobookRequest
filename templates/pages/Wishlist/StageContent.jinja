@@ -1,0 +1,479 @@
+{#def
+    user: DetailedUser,
+    view: str,
+    rows: list[StageRow],
+    submitters: list[str],
+    counts: WishlistCounts,
+    running: bool,
+    strict: bool,
+    retry_enabled: bool,
+    can_check: bool,
+    show_sources: bool,
+    update_tablist = False, # performs oob replacement for the tablist
+#}
+
+{% set is_admin = user.is_admin() %}
+{% set labels = {
+    "pending": "Waiting for approval",
+    "searching": "Searching",
+    "downloading": "Downloading",
+    "library": "In library",
+    "declined": "Declined"
+} %}
+{% set badges = {
+    "pending": "badge-warning",
+    "searching": "badge-info",
+    "downloading": "badge-primary",
+    "library": "badge-success",
+    "declined": "badge-error"
+} %}
+{% set default_sorts = {
+    "all": "requested",
+    "pending": "requested",
+    "searching": "requested",
+    "downloading": "date",
+    "library": "date",
+    "declined": "requested"
+} %}
+{% set default_dirs = {
+    "all": "desc",
+    "pending": "asc",
+    "searching": "asc",
+    "downloading": "asc",
+    "library": "desc",
+    "declined": "desc"
+} %}
+{% set actions = base_url ~ "/wishlist/stages" %}
+
+<div id="stage-content"
+     class="flex flex-col gap-3"
+     data-view="{{ view }}"
+     data-default-sort="{{ default_sorts[view] }}"
+     data-default-dir="{{ default_dirs[view] }}">
+    {% if update_tablist %}
+        <Wishlist.Tablist page={{ view }} counts={{ counts }} />
+    {% endif %}
+
+    <div class="flex flex-wrap items-center justify-between gap-2">
+        <p class="text-sm opacity-70">
+            {% if view == "pending" and is_admin %}
+                Requests from untrusted users. Nothing is searched or downloaded for these until you approve them.
+            {% elif view == "pending" %}
+                Waiting for an admin to approve them.
+            {% elif view == "searching" and not strict %}
+                Strict matching is off, so nothing is searched automatically. Turn it on under Settings &gt; Download.
+            {% elif view == "searching" and retry_enabled %}
+                Searched again automatically until a release that really matches turns up.
+            {% elif view == "searching" %}
+                Waiting for a release that really matches. Automatic retry is off, so these are only searched when asked.
+            {% elif view == "downloading" %}
+                Found and on their way. A book moves to In library once Audiobookshelf has it.
+            {% elif view == "library" and can_check %}
+                Ready to listen to in Audiobookshelf.
+            {% elif view == "library" %}
+                Fulfilled requests.
+            {% elif view == "declined" %}
+                Requests an admin said no to, with the reason.
+            {% else %}
+                Every request and where it stands.
+            {% endif %}
+        </p>
+        {% if is_admin %}
+            <div class="flex items-center gap-2">
+                {% if view == "pending" and rows|length > 1 %}
+                    <button class="btn btn-sm"
+                            hx-post="{{ actions }}/hx-approve-all?stage={{ view }}"
+                            hx-target="#stage-content"
+                            hx-swap="outerHTML"
+                            hx-disabled-elt="this">
+                        Approve all
+                    </button>
+                {% endif %}
+                {% if view == "searching" %}
+                    <button class="btn btn-sm"
+                            hx-post="{{ actions }}/hx-run?stage={{ view }}"
+                            hx-target="#stage-content"
+                            hx-swap="outerHTML"
+                            hx-disabled-elt="this"
+                            {% if running or not strict or not rows %}disabled{% endif %}>
+                        {% if running %}
+                            Searching...
+                        {% else %}
+                            Search all now
+                        {% endif %}
+                    </button>
+                {% endif %}
+            </div>
+        {% endif %}
+    </div>
+
+    {% if rows %}
+        <div class="flex flex-wrap items-end gap-2">
+            <label class="flex flex-col gap-1 grow min-w-48">
+                <span class="text-xs opacity-70">Search this list</span>
+                <input type="search"
+                       class="input input-sm w-full"
+                       placeholder="Title, author, narrator or submitter"
+                       data-stage-search />
+            </label>
+            {% if is_admin %}
+                <label class="flex flex-col gap-1">
+                    <span class="text-xs opacity-70">Submitted by</span>
+                    <select class="select select-sm" data-stage-submitter>
+                        <option value="">
+                            Everyone
+                        </option>
+                        {% for name in submitters %}
+                            <option value="{{ name }}">
+                                {{ name }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </label>
+            {% endif %}
+            <label class="flex flex-col gap-1">
+                <span class="text-xs opacity-70">Sort by</span>
+                <select class="select select-sm" data-stage-sort>
+                    <option value="requested">
+                        Date submitted
+                    </option>
+                    {% if is_admin %}
+                        <option value="submitter">
+                            Submitter
+                        </option>
+                    {% endif %}
+                    <option value="title">
+                        Title
+                    </option>
+                    <option value="author">
+                        Author
+                    </option>
+                    {% if view == "downloading" %}
+                        <option value="date">
+                            Date grabbed
+                        </option>
+                    {% elif view == "library" %}
+                        <option value="date">
+                            Date added
+                        </option>
+                    {% elif view == "searching" %}
+                        <option value="tries">
+                            Number of tries
+                        </option>
+                    {% endif %}
+                </select>
+            </label>
+            <button type="button"
+                    class="btn btn-sm"
+                    title="Reverse the order"
+                    data-stage-dir>
+                Ascending
+            </button>
+        </div>
+    {% endif %}
+
+    {% if not rows %}
+        <div role="alert" class="alert">
+            {% if view == "pending" and is_admin %}
+                Nothing is waiting on you.
+            {% elif view == "all" %}
+                No requests yet. Add some from the
+                <a preload class="link" href="{{ base_url }}/search">search</a>
+                page.
+            {% else %}
+                Nothing here right now.
+            {% endif %}
+        </div>
+    {% endif %}
+    <div class="alert" style="display: none" data-stage-nomatch>
+        Nothing in this list matches.
+    </div>
+
+    <div class="flex flex-col" data-stage-list>
+        {% for row in rows %}
+            {% set book = row.result.book %}
+            {% set record = row.record %}
+            <div class="flex flex-wrap items-center gap-3 border-t border-base-200 py-2"
+                 data-title="{{ book.title }}"
+                 data-author="{{ book.authors|join(", ") }}"
+                 data-submitter="{{ row.requesters|join(", ") }}"
+                 data-submitters="{{ row.requesters|join("|") }}"
+                 data-requested="{{ row.requested_at.isoformat() }}"
+                 data-date="{{ row.stage_date.isoformat() }}"
+                 data-tries="{{ record.tries if record else 0 }}"
+                 data-text="{{ (book.title ~ ' ' ~ (book.subtitle or '') ~ ' ' ~ book.authors|join(" ") ~ ' ' ~ book.narrators|join(' ') ~ ' ' ~ row.requesters|join(' '))|lower }}">
+                {% if book.cover_image %}
+                    <img class="size-14 object-cover rounded shrink-0"
+                         height="56"
+                         width="56"
+                         loading="lazy"
+                         src="{{ book.cover_image }}"
+                         alt="" />
+                {% else %}
+                    <div class="size-14 rounded shrink-0 bg-base-300">
+                    </div>
+                {% endif %}
+                <div class="flex flex-col grow basis-64 min-w-0">
+                    <a preload
+                       href="{{ base_url }}/search?q={{ book.title+' ' +(book.authors|join(",") ) }}"
+                       class="font-bold text-primary">{{ book.title }}</a>
+                    <span class="text-sm opacity-70">
+                        {{ book.authors|join(", ") }}
+                        {% if book.narrators %}
+                            &middot; read by {{ book.narrators|join(", ") }}
+                        {% endif %}
+                    </span>
+                    <span class="text-xs opacity-70">
+                        {% if is_admin %}
+                            submitted by <span class="font-semibold">{{ row.requesters|join(", ") }}</span> on {{ row.requested_text }}
+                        {% else %}
+                            submitted {{ row.requested_text }}
+                        {% endif %}
+                    </span>
+                    {% if row.stage == "searching" %}
+                        <span class="text-xs opacity-70">
+                            {% if record and record.tries %}
+                                tries: {{ record.tries }} &middot; last: {{ record.last_tried_text }}
+                                {% if is_admin %}
+                                    &middot; {{ record.last_result }}
+                                {% endif %}
+                            {% else %}
+                                not searched yet
+                            {% endif %}
+                        </span>
+                    {% elif row.stage == "downloading" and record and record.grabbed %}
+                        <span class="text-xs opacity-70">
+                            found {{ record.grabbed.when_text }}
+                            {% if is_admin %}
+                                &middot; {{ record.grabbed.release }} &middot; {{ record.grabbed.indexer }}
+                            {% endif %}
+                        </span>
+                    {% elif row.stage == "library" and record and record.in_library_at %}
+                        <span class="text-xs opacity-70">in the library since {{ record.in_library_text }}</span>
+                    {% endif %}
+                    {% if book.admin_note and (row.stage == "declined" or row.stage == "pending" or row.stage == "searching") %}
+                        <span class="text-xs text-warning whitespace-pre-line">Note: {{ book.admin_note }}</span>
+                    {% endif %}
+                </div>
+                <div class="flex flex-wrap items-center gap-1 shrink-0">
+                    {% if row.stuck %}
+                        <span class="badge badge-error badge-sm">Stuck: not in the library yet</span>
+                    {% elif view == "all" or row.approved_only %}
+                        {% if view == "all" %}
+                            <span class="badge badge-sm {{ badges[row.stage] }}">{{ labels[row.stage] }}</span>
+                        {% endif %}
+                        {% if row.approved_only and is_admin %}
+                            <span class="badge badge-sm">approved by an admin</span>
+                        {% endif %}
+                    {% endif %}
+                    {% if is_admin %}
+                        {% if row.stage == "pending" %}
+                            <button class="btn btn-sm" onclick="declineModal{{ book.asin }}.showModal()">
+                                Decline
+                            </button>
+                            <button class="btn btn-sm btn-primary"
+                                    hx-post="{{ actions }}/hx-approve/{{ book.asin }}?stage={{ view }}"
+                                    hx-target="#stage-content"
+                                    hx-swap="outerHTML"
+                                    hx-disabled-elt="this">
+                                Approve
+                            </button>
+                        {% elif row.stage == "searching" %}
+                            {% if row.approved_only %}
+                                <button class="btn btn-sm"
+                                        title="Take the approval back"
+                                        hx-delete="{{ actions }}/hx-approve/{{ book.asin }}?stage={{ view }}"
+                                        hx-target="#stage-content"
+                                        hx-swap="outerHTML"
+                                        hx-disabled-elt="this">
+                                    Undo
+                                </button>
+                            {% endif %}
+                            <button class="btn btn-sm"
+                                    hx-post="{{ actions }}/hx-search/{{ book.asin }}?stage={{ view }}"
+                                    hx-target="#stage-content"
+                                    hx-swap="outerHTML"
+                                    hx-disabled-elt="this"
+                                    {% if not strict %}disabled{% endif %}>
+                                Search now
+                            </button>
+                            {% if show_sources %}
+                                <a class="btn btn-sm"
+                                   title="Pick a release by hand"
+                                   href="{{ base_url }}/wishlist/sources/{{ book.asin }}">Sources</a>
+                            {% endif %}
+                            <button class="btn btn-sm" onclick="declineModal{{ book.asin }}.showModal()">
+                                Decline
+                            </button>
+                        {% elif row.stage == "downloading" %}
+                            <button class="btn btn-sm"
+                                    title="The download never arrived: search for another release"
+                                    hx-post="{{ actions }}/hx-requeue/{{ book.asin }}?stage={{ view }}"
+                                    hx-target="#stage-content"
+                                    hx-swap="outerHTML"
+                                    hx-disabled-elt="this">
+                                Search again
+                            </button>
+                            <button class="btn btn-sm"
+                                    title="It is in Audiobookshelf, the check just missed it"
+                                    hx-post="{{ actions }}/hx-library/{{ book.asin }}?stage={{ view }}"
+                                    hx-target="#stage-content"
+                                    hx-swap="outerHTML"
+                                    hx-disabled-elt="this">
+                                Mark in library
+                            </button>
+                        {% elif row.stage == "declined" %}
+                            <button class="btn btn-sm"
+                                    hx-delete="{{ actions }}/hx-decline/{{ book.asin }}?stage={{ view }}"
+                                    hx-target="#stage-content"
+                                    hx-swap="outerHTML"
+                                    hx-disabled-elt="this">
+                                Restore
+                            </button>
+                        {% endif %}
+                    {% endif %}
+                    {% if is_admin or row.stage != "downloading" %}
+                        <button class="btn btn-sm btn-ghost"
+                                title="{% if is_admin %}Remove this request for everyone{% else %}Remove my request{% endif %}"
+                                hx-delete="{{ actions }}/hx-request/{{ book.asin }}?stage={{ view }}"
+                                hx-target="#stage-content"
+                                hx-swap="outerHTML"
+                                hx-confirm="Remove the request for {{ book.title }}?"
+                                hx-disabled-elt="this">
+                            Remove
+                        </button>
+                    {% endif %}
+                </div>
+                {% if is_admin and (row.stage == "pending" or row.stage == "searching") %}
+                    <dialog id="declineModal{{ book.asin }}"
+                            class="modal"
+                            aria-labelledby="decline-title-{{ book.asin }}">
+                        <div class="modal-box max-w-2xl">
+                            <h3 id="decline-title-{{ book.asin }}"
+                                class="text-lg font-bold break-words">
+                                Decline <span class="italic">{{ book.title }}</span>
+                            </h3>
+                            <form class="mt-4"
+                                  hx-post="{{ actions }}/hx-decline/{{ book.asin }}?stage={{ view }}"
+                                  hx-target="#stage-content"
+                                  hx-swap="outerHTML"
+                                  hx-disabled-elt="find button[type='submit']">
+                                <label for="decline-note-{{ book.asin }}" class="flex flex-col gap-2">
+                                    <span class="text-sm font-semibold">Reason, shown to the people who asked (optional)</span>
+                                    <textarea id="decline-note-{{ book.asin }}"
+                                              name="note"
+                                              class="textarea w-full h-28 resize-y leading-relaxed"
+                                              maxlength="2000">{{ book.admin_note or "" }}</textarea>
+                                </label>
+                                <div class="modal-action">
+                                    <button type="button" class="btn" onclick="this.closest('dialog').close()">
+                                        Cancel
+                                    </button>
+                                    <button type="submit" class="btn btn-primary">
+                                        Decline
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                        <form method="dialog" class="modal-backdrop">
+                            <button>close</button>
+                        </form>
+                    </dialog>
+                {% endif %}
+            </div>
+        {% endfor %}
+    </div>
+
+    <script>
+        (function() {
+            const root = document.getElementById("stage-content");
+            if (!root) {
+                return;
+            }
+            const list = root.querySelector("[data-stage-list]");
+            const search = root.querySelector("[data-stage-search]");
+            const submitter = root.querySelector("[data-stage-submitter]");
+            const sort = root.querySelector("[data-stage-sort]");
+            const dir = root.querySelector("[data-stage-dir]");
+            const nomatch = root.querySelector("[data-stage-nomatch]");
+            if (!list || !sort || !dir) {
+                return;
+            }
+            const key = "abr-stage-" + root.dataset.view;
+            const state = {
+                sort: root.dataset.defaultSort,
+                dir: root.dataset.defaultDir,
+                submitter: "",
+            };
+            try {
+                const saved = JSON.parse(localStorage.getItem(key) || "null");
+                if (saved) {
+                    Object.assign(state, saved);
+                }
+            } catch (e) {
+                console.debug(e);
+            }
+            sort.value = state.sort;
+            if (sort.value !== state.sort) {
+                state.sort = root.dataset.defaultSort;
+                sort.value = state.sort;
+            }
+            if (submitter) {
+                submitter.value = state.submitter;
+                state.submitter = submitter.value;
+            }
+            const value = function(row) {
+                const raw = row.dataset[state.sort] || "";
+                return state.sort === "tries" ? Number(raw) : raw.toLowerCase();
+            };
+            const apply = function() {
+                const text = search ? search.value.trim().toLowerCase() : "";
+                const who = submitter ? submitter.value : "";
+                const rows = Array.from(list.children);
+                rows.sort(function(a, b) {
+                    const x = value(a);
+                    const y = value(b);
+                    const order = x < y ? -1 : x > y ? 1 : 0;
+                    return state.dir === "asc" ? order : -order;
+                });
+                let shown = 0;
+                rows.forEach(function(row) {
+                    const matchesText = !text || (row.dataset.text || "").indexOf(text) !== -1;
+                    const matchesWho = !who || (row.dataset.submitters || "").split("|").indexOf(who) !== -1;
+                    row.style.display = matchesText && matchesWho ? "" : "none";
+                    if (matchesText && matchesWho) {
+                        shown += 1;
+                    }
+                    list.appendChild(row);
+                });
+                if (nomatch) {
+                    nomatch.style.display = rows.length > 0 && shown === 0 ? "" : "none";
+                }
+                dir.textContent = state.dir === "asc" ? "Ascending" : "Descending";
+                try {
+                    localStorage.setItem(key, JSON.stringify(state));
+                } catch (e) {
+                    console.debug(e);
+                }
+            };
+            sort.addEventListener("change", function() {
+                state.sort = sort.value;
+                apply();
+            });
+            dir.addEventListener("click", function() {
+                state.dir = state.dir === "asc" ? "desc" : "asc";
+                apply();
+            });
+            if (submitter) {
+                submitter.addEventListener("change", function() {
+                    state.submitter = submitter.value;
+                    apply();
+                });
+            }
+            if (search) {
+                search.addEventListener("input", apply);
+            }
+            apply();
+        })();
+    </script>
+</div>

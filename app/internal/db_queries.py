@@ -13,12 +13,21 @@ from app.internal.models import (
     ManualBookRequest,
     User,
 )
+from app.internal.retry.pool import count_stages, get_rows
 
 
 class WishlistCounts(BaseModel):
     requests: int
     fulfilled: int
     manual: int
+    approvals: int | None = None
+    """Requests waiting for an admin's approval. None for non-admins."""
+    pending: int = 0
+    searching: int = 0
+    downloading: int = 0
+    library: int = 0
+    declined: int = 0
+    total: int = 0
 
 
 def get_wishlist_counts(session: Session, user: User | None = None) -> WishlistCounts:
@@ -52,10 +61,20 @@ def get_wishlist_counts(session: Session, user: User | None = None) -> WishlistC
         )
     ).one()
 
+    stage_rows = get_rows(session, username)
+    stages = count_stages(stage_rows)
+
     return WishlistCounts(
         requests=requests,
         fulfilled=fulfilled,
         manual=manual,
+        approvals=stages["pending"] if user is not None and user.is_admin() else None,
+        pending=stages["pending"],
+        searching=stages["searching"],
+        downloading=stages["downloading"],
+        library=stages["library"],
+        declined=stages["declined"],
+        total=len(stage_rows),
     )
 
 
