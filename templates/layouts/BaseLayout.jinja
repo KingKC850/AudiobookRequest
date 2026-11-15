@@ -131,16 +131,19 @@
                                   hx-trigger="load"
                                   hx-swap="outerHTML"></span>
                         {% endif %}
-                        <button class="btn btn-ghost h-auto min-h-12 px-2 py-1 flex-col gap-0 font-normal light-dark-toggle"
+                        <button class="btn btn-ghost h-auto min-h-12 px-2 py-1 flex-col gap-0 font-normal"
                                 onclick="toggleTheme()">
-                            <script>
-                                setTheme();
-                            </script>
-                            <span class="theme-dark svg-dark">
-                                <icons.Moon />
-                            </span>
-                            <span class="theme-light svg-light">
-                                <icons.Sun />
+                            {# the two icons sit on top of each other; the label goes below them #}
+                            <span class="light-dark-toggle">
+                                <script>
+                                    setTheme();
+                                </script>
+                                <span class="theme-dark svg-dark">
+                                    <icons.Moon />
+                                </span>
+                                <span class="theme-light svg-light">
+                                    <icons.Sun />
+                                </span>
                             </span>
                             <span class="text-xs">Theme</span>
                         </button>
