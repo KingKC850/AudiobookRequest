@@ -1,6 +1,6 @@
 import json
 from contextlib import asynccontextmanager
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Annotated, Literal
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
@@ -39,6 +39,8 @@ from app.util.templates import catalog_response
 # How often the scheduler looks for work.
 RETRY_CHECK_MINUTES = 10
 LIBRARY_CHECK_MINUTES = 10
+# A book that reached the library counts as "ready" in the top bar for this long.
+READY_DAYS = 7
 
 StageView = Literal["all", "pending", "searching", "downloading", "library", "declined"]
 
@@ -145,6 +147,33 @@ async def approval_badge(
     return catalog_response(
         "Wishlist.ApprovalBadge",
         count=get_wishlist_counts(session, admin_user).pending,
+    )
+
+
+@router.get("/hx-status")
+async def nav_status(
+    session: Annotated[Session, Depends(get_session)],
+    user: Annotated[DetailedUser, Security(ABRAuth())],
+    compact: bool = False,
+):
+    """What the top bar shows next to the requests link."""
+    rows = get_rows(session, None if user.is_admin() else user.username)
+    since = datetime.now(UTC) - timedelta(days=READY_DAYS)
+    return catalog_response(
+        "Wishlist.NavStatus",
+        ready=sum(
+            1
+            for r in rows
+            if r.stage == "library"
+            and r.record is not None
+            and r.record.in_library_at is not None
+            and r.record.in_library_at > since
+        ),
+        on_the_way=sum(1 for r in rows if r.stage == "downloading"),
+        in_progress=sum(
+            1 for r in rows if r.stage in ("pending", "searching", "downloading")
+        ),
+        compact=compact,
     )
 
 

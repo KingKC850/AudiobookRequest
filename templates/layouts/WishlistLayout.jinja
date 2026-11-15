@@ -8,7 +8,11 @@
 <BaseLayout title={{ title }} user={{ user }}>
 <div class="w-full flex flex-col gap-3 p-3 md:p-4 lg:p-8">
     <h1 class="text-3xl font-bold">
-        Wishlist
+        {% if user.is_admin() %}
+            Requests
+        {% else %}
+            My requests
+        {% endif %}
     </h1>
 
     <Wishlist.Tablist page={{ page }} counts={{ counts }} />

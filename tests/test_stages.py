@@ -349,3 +349,48 @@ def test_page_actions(admin_client: TestClient, db: Session) -> None:
     assert response.status_code == 200
     retry_config.flush()
     assert retry_config.get_approved(db) == set()
+
+
+def test_top_bar_names_things_and_shows_status(
+    admin_client: TestClient,
+    untrusted_client: TestClient,
+    db: Session,
+    abs_service: MockServer,
+) -> None:
+    page = untrusted_client.get("/wishlist")
+    assert "My requests" in page.text
+    assert "hx-status" in page.text
+    for label in ("Search", "Settings", "Theme", "Home"):
+        assert label in page.text
+
+    admin_page = admin_client.get("/wishlist")
+    assert "My requests" not in admin_page.text
+    assert "Requests" in admin_page.text
+
+    # nothing to say yet: no pills, but a count of what is in progress on phones
+    status = untrusted_client.get("/wishlist/stages/hx-status")
+    assert status.status_code == 200
+    assert "ready" not in status.text and "on the way" not in status.text
+    compact = untrusted_client.get("/wishlist/stages/hx-status?compact=true")
+    assert ">1<" in compact.text
+
+    _grab(db, UNTRUSTED_ASIN)
+    status = untrusted_client.get("/wishlist/stages/hx-status")
+    assert "1 on the way" in status.text and "ready" not in status.text
+
+    retry_config.mark_in_library(db, UNTRUSTED_ASIN)
+    status = untrusted_client.get("/wishlist/stages/hx-status")
+    assert "1 ready" in status.text and "on the way" not in status.text
+
+    # after a week it is no longer news
+    state = retry_config.get_state(db)
+    state[UNTRUSTED_ASIN].in_library_at = datetime.now(UTC) - timedelta(days=8)
+    retry_config.set_state(db, state)
+    status = untrusted_client.get("/wishlist/stages/hx-status")
+    assert "ready" not in status.text
+
+    # an admin's pills count everyone's books
+    _grab(db, ASIN)
+    assert "1 on the way" in admin_client.get("/wishlist/stages/hx-status").text
+    assert "on the way" not in untrusted_client.get("/wishlist/stages/hx-status").text
+    _ = abs_service

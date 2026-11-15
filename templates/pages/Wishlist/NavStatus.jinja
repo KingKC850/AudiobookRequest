@@ -1,0 +1,28 @@
+{#def
+    ready: int,
+    on_the_way: int,
+    in_progress: int,
+    compact: bool,
+#}
+
+{% if compact %}
+    {# phone: a plain count on the My requests item #}
+    {% if in_progress > 0 or ready > 0 %}
+        <span class="absolute top-0 right-3 badge badge-xs {% if ready > 0 %}badge-success{% else %}badge-primary{% endif %}">{{ in_progress + ready }}</span>
+    {% endif %}
+{% else %}
+    <span class="hidden sm:inline-flex items-center gap-1">
+        {% if ready > 0 %}
+            <a preload
+               href="{{ base_url }}/wishlist?stage=library"
+               class="badge badge-success"
+               title="Arrived in the library in the last week">{{ ready }} ready</a>
+        {% endif %}
+        {% if on_the_way > 0 %}
+            <a preload
+               href="{{ base_url }}/wishlist?stage=downloading"
+               class="badge badge-primary"
+               title="Found and downloading">{{ on_the_way }} on the way</a>
+        {% endif %}
+    </span>
+{% endif %}

@@ -92,7 +92,7 @@
         {% if not hide_navbar %}
             <header class="shadow-lg">
                 <nav class="navbar">
-                    <div class="flex-1">
+                    <div class="flex-1 flex items-center gap-1">
                         <a preload
                            href="{{ base_url }}/"
                            class="btn btn-ghost text-lg hidden sm:inline-flex">
@@ -105,29 +105,33 @@
                         </a>
                         <a preload
                            href="{{ base_url }}/search"
-                           class="btn btn-ghost btn-square"
-                           title="Search">
+                           class="btn btn-ghost h-auto min-h-12 px-2 py-1 flex-col gap-0 font-normal hidden sm:inline-flex">
                             <icons.Search />
+                            <span class="text-xs">Search</span>
                         </a>
                         <a preload
                            href="{{ base_url }}/wishlist"
-                           class="btn btn-ghost btn-square group relative"
-                           title="Wishlist">
-                            <span class="opacity-0 group-hover:opacity-100 absolute left-2 top-2 transition-opacity duration-500">
-                                <icons.GiftSolid />
-                            </span>
-                            <span class="opacity-100 group-hover:opacity-0 absolute left-2 top-2 transition-opacity duration-500">
-                                <icons.Gift />
+                           class="btn btn-ghost h-auto min-h-12 px-2 py-1 flex-col gap-0 font-normal hidden sm:inline-flex">
+                            <icons.Checklist />
+                            <span class="text-xs">
+                                {% if user.is_admin() %}
+                                    Requests
+                                {% else %}
+                                    My requests
+                                {% endif %}
                             </span>
                         </a>
+                        <span hx-get="{{ base_url }}/wishlist/stages/hx-status"
+                              hx-trigger="load"
+                              hx-swap="outerHTML"></span>
                     </div>
-                    <div class="flex-none flex items-center pr-4">
+                    <div class="flex-none flex items-center gap-1 pr-2 sm:pr-4">
                         {% if user.is_admin() %}
                             <span hx-get="{{ base_url }}/wishlist/stages/hx-badge"
                                   hx-trigger="load"
                                   hx-swap="outerHTML"></span>
                         {% endif %}
-                        <button class="btn btn-ghost btn-square light-dark-toggle"
+                        <button class="btn btn-ghost h-auto min-h-12 px-2 py-1 flex-col gap-0 font-normal light-dark-toggle"
                                 onclick="toggleTheme()">
                             <script>
                                 setTheme();
@@ -138,28 +142,69 @@
                             <span class="theme-light svg-light">
                                 <icons.Sun />
                             </span>
+                            <span class="text-xs">Theme</span>
                         </button>
-                        {% if user.can_logout() %}
-                            <button hx-post="{{ base_url }}/auth/logout"
-                                    class="btn btn-ghost btn-square"
-                                    title="Logout">
-                                <icons.DoorExit />
-                            </button>
-                        {% endif %}
                         <a preload
                            href="{{ base_url }}/settings/account"
-                           class="btn btn-ghost btn-square group"
-                           title="Settings">
-                            <span class="group-hover:rotate-90 transition-all duration-500 ease-in-out">
-                                <icons.Settings />
-                            </span>
+                           class="btn btn-ghost h-auto min-h-12 px-2 py-1 flex-col gap-0 font-normal hidden sm:inline-flex">
+                            <icons.Settings />
+                            <span class="text-xs">Settings</span>
                         </a>
+                        {% if user.can_logout() %}
+                            <button hx-post="{{ base_url }}/auth/logout"
+                                    class="btn btn-ghost h-auto min-h-12 px-2 py-1 flex-col gap-0 font-normal">
+                                <icons.DoorExit />
+                                <span class="text-xs">Sign out</span>
+                            </button>
+                        {% endif %}
                     </div>
                 </nav>
             </header>
         {% endif %}
 
         {{ content }}
+
+        {% if not hide_navbar %}
+            {# phones: the main places as a labelled bar along the bottom #}
+            <div class="h-16 shrink-0 sm:hidden">
+            </div>
+            <nav aria-label="Main"
+                 class="sm:hidden fixed bottom-0 inset-x-0 z-40 flex justify-around bg-base-100 border-t border-base-300">
+                <a preload
+                   href="{{ base_url }}/"
+                   class="btn btn-ghost h-auto min-h-14 grow px-1 py-1 flex-col gap-0 font-normal rounded-none">
+                    <icons.Home />
+                    <span class="text-xs">Home</span>
+                </a>
+                <a preload
+                   href="{{ base_url }}/search"
+                   class="btn btn-ghost h-auto min-h-14 grow px-1 py-1 flex-col gap-0 font-normal rounded-none">
+                    <icons.Search />
+                    <span class="text-xs">Search</span>
+                </a>
+                <a preload
+                   href="{{ base_url }}/wishlist"
+                   class="btn btn-ghost h-auto min-h-14 grow px-1 py-1 flex-col gap-0 font-normal rounded-none relative">
+                    <icons.Checklist />
+                    <span class="text-xs">
+                        {% if user.is_admin() %}
+                            Requests
+                        {% else %}
+                            My requests
+                        {% endif %}
+                    </span>
+                    <span hx-get="{{ base_url }}/wishlist/stages/hx-status?compact=true"
+                          hx-trigger="load"
+                          hx-swap="outerHTML"></span>
+                </a>
+                <a preload
+                   href="{{ base_url }}/settings/account"
+                   class="btn btn-ghost h-auto min-h-14 grow px-1 py-1 flex-col gap-0 font-normal rounded-none">
+                    <icons.Settings />
+                    <span class="text-xs">Settings</span>
+                </a>
+            </nav>
+        {% endif %}
 
     </body>
 </html>
