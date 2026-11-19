@@ -1,0 +1,101 @@
+{#def
+    settings: SeriesSettings,
+#}
+
+<form id="series-settings"
+      class="flex flex-col gap-2"
+      hx-post="{{ base_url }}/settings/series/hx-form"
+      hx-disabled-elt="#series-save-button"
+      hx-target="this"
+      hx-swap="outerHTML">
+    <h3 class="text-lg">
+        Search and series
+    </h3>
+    <div class="w-full flex items-center justify-between gap-2 border-t pt-2 border-base-200">
+        <label for="search-language-filter">
+            Only show books in the language of the selected Audible store
+        </label>
+        <input id="search-language-filter"
+               name="language_filter"
+               type="checkbox"
+               class="checkbox"
+               {% if settings.language_filter %}checked{% endif %} />
+    </div>
+    <p class="text-xs opacity-60">
+        A store also lists editions in other languages (the US store has German translations, for example). With this on they are hidden from search results and never requested by the series watch list.
+    </p>
+    <div class="w-full flex items-center justify-between gap-2 border-t pt-2 border-base-200">
+        <label for="series-enabled">
+            Check watched series every day
+        </label>
+        <input id="series-enabled"
+               name="enabled"
+               type="checkbox"
+               class="checkbox"
+               {% if settings.enabled %}checked{% endif %} />
+    </div>
+    <p class="text-xs opacity-60">
+        Series on the
+        <a class="link" href="{{ base_url }}/series">watch list</a>
+        are looked up on Audible once a day and their missing books are requested. Books that are not out yet, box sets and other editions of a book you already have are left alone. A series only takes part after its preview has been confirmed. <b>New only</b> asks for books after the newest one in the library; <b>Fill in</b> asks for every missing book.
+    </p>
+    <div class="w-full flex items-center justify-between">
+        <label for="series-default-mode">
+            Mode offered first when watching a series
+        </label>
+        <select id="series-default-mode" name="default_mode" class="select">
+            <option value="new"
+                    {% if settings.default_mode.__eq__("new") %}selected="selected"{% endif %}>
+                New only
+            </option>
+            <option value="fill"
+                    {% if settings.default_mode.__eq__("fill") %}selected="selected"{% endif %}>
+                Fill in
+            </option>
+        </select>
+    </div>
+    <div class="w-full flex items-center justify-between">
+        <label for="series-run-hour">
+            Hour of the day to check <span class="text-xs opacity-60">(0 to 23, server time)</span>
+        </label>
+        <input id="series-run-hour"
+               name="run_hour"
+               type="number"
+               min="0"
+               max="23"
+               class="input"
+               placeholder="4"
+               value="{{ settings.run_hour }}" />
+    </div>
+    <div class="w-full flex items-center justify-between">
+        <label for="series-max-per-run">
+            Most books requested per series in one check <span class="text-xs opacity-60">(0 = no limit)</span>
+        </label>
+        <input id="series-max-per-run"
+               name="max_per_run"
+               type="number"
+               min="0"
+               class="input"
+               placeholder="5"
+               value="{{ settings.max_per_run }}" />
+    </div>
+    <div class="w-full flex items-center justify-between">
+        <label for="series-user">
+            Account the requests are made under
+        </label>
+        <input id="series-user"
+               name="user"
+               type="text"
+               class="input"
+               maxlength="100"
+               required
+               placeholder="series-watch"
+               value="{{ settings.user }}" />
+    </div>
+    <p class="text-xs opacity-60">
+        The account is created as a trusted user the first time it is needed, so its requests are searched without waiting for approval. Nobody can sign in with it.
+    </p>
+    <button id="series-save-button" type="submit" class="btn btn-primary">
+        Save
+    </button>
+</form>

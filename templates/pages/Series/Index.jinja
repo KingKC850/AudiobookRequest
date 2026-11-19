@@ -1,0 +1,17 @@
+{#def
+    user: DetailedUser,
+    series: list[WatchedSeries],
+    running: bool,
+    enabled: bool,
+    run_hour: int,
+    last_run: str | None,
+#}
+
+<BaseLayout title="Series" user={{ user }}>
+<div class="w-full flex flex-col gap-3 p-3 md:p-4 lg:p-8">
+    <h1 class="text-3xl font-bold">
+        Series watch list
+    </h1>
+    <Series.List user={{ user }} series={{ series }} running={{ running }} enabled={{ enabled }} run_hour={{ run_hour }} last_run={{ last_run }} />
+</div>
+</BaseLayout>

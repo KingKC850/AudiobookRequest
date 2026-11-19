@@ -1,0 +1,27 @@
+{#def
+    user: DetailedUser,
+    view: SeriesView,
+    rows: list[SeriesRow],
+    default_mode: str,
+    enabled: bool,
+    auto_start_download: bool,
+#}
+
+<BaseLayout title="{{ view.info.title }}" user={{ user }}>
+<div class="w-full flex flex-col gap-4 p-3 md:p-4 lg:p-8">
+    <div class="flex flex-wrap items-end justify-between gap-2">
+        <div class="flex flex-col">
+            <span class="text-xs uppercase tracking-wide opacity-60">Series</span>
+            <h1 class="text-3xl font-bold">
+                {{ view.info.title }}
+            </h1>
+            <span class="text-sm opacity-70">
+                {% if view.info.authors %}{{ view.info.authors | join(", ") }} &middot;{% endif %}
+                {{ view.info.books | length }} title{% if view.info.books | length != 1 %}s{% endif %} on Audible ({{ view.info.region }})
+            </span>
+        </div>
+        <a preload href="{{ base_url }}/series" class="btn btn-sm">Watch list</a>
+    </div>
+    <Series.Body user={{ user }} view={{ view }} rows={{ rows }} default_mode={{ default_mode }} enabled={{ enabled }} auto_start_download={{ auto_start_download }} />
+</div>
+</BaseLayout>

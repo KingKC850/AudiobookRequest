@@ -58,6 +58,9 @@ from app.internal.prowlarr.util import (
 )
 from app.internal.ranking.quality import quality_config
 from app.internal.retry.state import retry_config
+from app.internal.series import audible as series_audible
+from app.internal.series import memo as series_memo
+from app.internal.series.config import series_config
 from app.util.db import engine
 from tests.constants import ASIN, FULFILLED_ASIN, MANUAL_ID
 
@@ -79,6 +82,9 @@ def _flush_caches() -> None:
     indexer_configuration_cache.flush()
     match_config.flush()
     retry_config.flush()
+    series_config.flush()
+    series_audible.clear_cache()
+    series_memo.clear()
     prowlarr_source_cache.flush()
     prowlarr_indexer_cache.flush()
     search_cache.clear()
@@ -150,6 +156,7 @@ def mock_server() -> Iterator[mock_services.MockServer]:
     mock_services.install_chaptarr(server)
     mock_services.install_notifications(server)
     mock_services.install_audiobookshelf(server)
+    mock_services.install_audible(server)
     mock_services.install_oidc(server)
     server.start()
     yield server

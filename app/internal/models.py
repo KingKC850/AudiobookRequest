@@ -10,6 +10,7 @@ from sqlmodel._compat import SQLModelConfig
 from sqlmodel.main import Relationship
 
 from app.internal.library.index import library_index
+from app.internal.series.memo import SeriesRef, series_of
 
 
 class BaseSQLModel(SQLModel):
@@ -104,6 +105,11 @@ class Audiobook(BaseSQLModel, table=True):
     def in_library(self) -> bool:
         """The book is already in the Audiobookshelf library, requested or not."""
         return library_index.owns(self.asin, self.title, self.authors)
+
+    @property
+    def series(self) -> SeriesRef | None:
+        """The series the book is part of, if a search has told us."""
+        return series_of(self.asin)
 
 
 class AudiobookWithRequests(BaseModel):

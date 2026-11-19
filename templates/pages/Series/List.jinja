@@ -1,0 +1,91 @@
+{#def
+    user: DetailedUser,
+    series: list[WatchedSeries],
+    running: bool,
+    enabled: bool,
+    run_hour: int,
+    last_run: str | None,
+#}
+
+<div id="series-list" class="flex flex-col gap-3">
+    <div class="flex flex-wrap items-center justify-between gap-2">
+        <p class="text-sm opacity-70">
+            {% if enabled %}
+                Watched series are checked once a day, from {{ "%02d" | format(run_hour) }}:00 on, and missing books are requested.
+            {% else %}
+                The daily check is turned off, so nothing is requested on its own. Turn it on under Settings &gt; Download.
+            {% endif %}
+            {% if last_run %}Last check: {{ last_run }}.{% endif %}
+            To add a series, open it from the series name under any of its books in
+            <a class="link" preload href="{{ base_url }}/search">Search</a>.
+        </p>
+        {% if user.is_admin() %}
+            <button class="btn btn-sm"
+                    hx-post="{{ base_url }}/series/hx-run"
+                    hx-target="#series-list"
+                    hx-swap="outerHTML"
+                    hx-disabled-elt="this"
+                    {% if running or not series %}disabled{% endif %}>
+                {% if running %}
+                    Checking...
+                {% else %}
+                    Check now
+                {% endif %}
+            </button>
+        {% endif %}
+    </div>
+
+    {% if not series %}
+        <div class="py-8 flex flex-col gap-1 items-center text-center">
+            <span class="text-xl font-semibold">No series are watched yet</span>
+            <span class="text-sm opacity-60 max-w-md">Search for a book, click its series name, then choose Watch.</span>
+        </div>
+    {% else %}
+        <div class="overflow-x-auto">
+            <table class="table table-sm">
+                <thead>
+                    <tr>
+                        <th>Series</th>
+                        <th>Mode</th>
+                        <th>Last check</th>
+                        <th>Next announced</th>
+                        <th>Requested so far</th>
+                        <th>Added by</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for s in series %}
+                        <tr>
+                            <td>
+                                <a class="link link-hover font-semibold flex items-center gap-2"
+                                   href="{{ base_url }}/series/{{ s.asin }}">
+                                    {% if s.cover_image %}
+                                        <img class="w-8 h-8 rounded object-cover"
+                                             src="{{ s.cover_image }}"
+                                             alt=""
+                                             loading="lazy" />
+                                    {% endif %}
+                                    {{ s.title }}
+                                </a>
+                            </td>
+                            <td>
+                                {{ s.mode_text }}
+                                {% if not s.confirmed %}
+                                    <span class="badge badge-warning badge-sm ml-1"
+                                          title="Open the series and confirm the preview">needs confirming</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {{ s.last_checked_text }}
+                                {% if s.last_result %}<div class="text-xs opacity-60">{{ s.last_result }}</div>{% endif %}
+                            </td>
+                            <td>{{ s.upcoming or "" }}</td>
+                            <td>{{ s.requested | length }}</td>
+                            <td>{{ s.added_by }}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% endif %}
+</div>

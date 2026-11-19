@@ -54,6 +54,9 @@ class MockState(TypedDict):
     oidc_userinfo: dict[str, object]
     chaptarr_lookup: list[dict[str, object]]
     chaptarr_added: list[dict[str, object]]
+    audible_series: dict[str, dict[str, object]]
+    audible_products: list[dict[str, object]]
+    audible_relationships_status: int
 
 
 DEFAULT_INDEXERS: list[dict[str, object]] = [
@@ -220,6 +223,9 @@ def default_state(base_url: str) -> MockState:
             }
         ],
         "chaptarr_added": [],
+        "audible_series": {},
+        "audible_products": [],
+        "audible_relationships_status": 200,
     }
 
 
@@ -372,6 +378,31 @@ def install_audiobookshelf(mock: MockServer, prefix: str = "/abs") -> None:
     mock.add("GET", f"{prefix}/api/libraries/{{id}}/items", items)
     mock.add("GET", f"{prefix}/api/libraries/{{id}}/search", search)
     mock.add("GET", f"{prefix}/api/items/{{id}}/cover", cover)
+
+
+def install_audible(mock: MockServer, prefix: str = "/audible") -> None:
+    """The part of the Audible catalog the series code talks to."""
+
+    async def product(request: web.Request) -> web.Response:
+        status = mock.state["audible_relationships_status"]
+        if status != 200:
+            return web.json_response({"error": "mock"}, status=status)
+        series = mock.state["audible_series"].get(request.match_info["asin"])
+        if series is None:
+            return web.json_response({"error": "not found"}, status=404)
+        return web.json_response({"product": series})
+
+    async def products(request: web.Request) -> web.Response:
+        found = mock.state["audible_products"]
+        if "asins" in request.query:
+            wanted = request.query["asins"].split(",")
+            found = [p for p in found if p["asin"] in wanted]
+        size = int(request.query.get("num_results", "50"))
+        page = int(request.query.get("page", "0"))
+        return web.json_response({"products": found[page * size : (page + 1) * size]})
+
+    mock.add("GET", f"{prefix}/catalog/products/{{asin}}", product)
+    mock.add("GET", f"{prefix}/catalog/products", products)
 
 
 def install_oidc(mock: MockServer, prefix: str = "/oidc") -> None:

@@ -1,6 +1,6 @@
 import time
 from datetime import datetime
-from typing import cast
+from typing import Literal, cast
 
 from aiohttp import ClientSession
 from pydantic import BaseModel
@@ -31,11 +31,40 @@ def clear_old_book_caches(session: Session):
     logger.debug("Cleared old book caches", rowcount=result.rowcount)
 
 
+SearchSort = Literal[
+    "relevance", "newest", "oldest", "title", "bestsellers", "rating", "longest"
+]
+# What the Audible catalog calls each order.
+_SORT_PARAM: dict[SearchSort, str] = {
+    "relevance": "Relevance",
+    "newest": "-ReleaseDate",
+    "oldest": "ReleaseDate",
+    "title": "Title",
+    "bestsellers": "BestSellers",
+    "rating": "AvgRating",
+    "longest": "-RuntimeLength",
+}
+SORT_LABELS: dict[SearchSort, str] = {
+    "relevance": "Best match",
+    "newest": "Newest first",
+    "oldest": "Oldest first",
+    "title": "Title A to Z",
+    "bestsellers": "Bestsellers",
+    "rating": "Highest rated",
+    "longest": "Longest first",
+}
+
+
 class CacheQuery(BaseModel, frozen=True):
     query: str
     num_results: int
     page: int
     audible_region: audible_region_type
+    title: str = ""
+    author: str = ""
+    narrator: str = ""
+    sort: str = "relevance"
+    language_filter: bool = True
 
 
 class CacheResult[T](BaseModel, frozen=True):
@@ -136,20 +165,40 @@ async def search_audible_books(
     num_results: int = 20,
     page: int = 0,
     audible_region: audible_region_type | None = None,
+    title: str | None = None,
+    author: str | None = None,
+    narrator: str | None = None,
+    sort: SearchSort = "relevance",
+    language_filter: bool = True,
 ) -> list[Audiobook]:
     """
     https://audible.readthedocs.io/en/latest/misc/external_api.html#get--1.0-catalog-products
 
     Use the audible API to fetch all the books. We get all the required metadata by using
     the 'media' response group.
+
+    `query` searches everything at once. `title`, `author` and `narrator` each
+    narrow the search to that field, and can be combined with `query` or used
+    without it.
     """
     if audible_region is None:
         audible_region = get_region_from_settings()
+    query = (query or "").strip()
+    title = (title or "").strip()
+    author = (author or "").strip()
+    narrator = (narrator or "").strip()
+    if not (query or title or author or narrator):
+        return []
     cache_key = CacheQuery(
         query=query,
         num_results=num_results,
         page=page,
         audible_region=audible_region,
+        title=title,
+        author=author,
+        narrator=narrator,
+        sort=sort,
+        language_filter=language_filter,
     )
     cache_result = search_cache.get(cache_key)
 
@@ -159,23 +208,36 @@ async def search_audible_books(
     base_url = (
         f"https://api.audible{audible_regions[audible_region]}/1.0/catalog/products"
     )
-    params = {
+    params: dict[str, str | int] = {
         "num_results": num_results,
-        "products_sort_by": "Relevance",
-        "keywords": query,
+        "products_sort_by": _SORT_PARAM.get(sort, "Relevance"),
         "page": page,
-        "response_groups": "media,product_attrs",
+        "response_groups": "media,product_attrs,series",
     }
+    if query:
+        params["keywords"] = query
+    if title:
+        params["title"] = title
+    if author:
+        params["author"] = author
+    if narrator:
+        params["narrator"] = narrator
 
     try:
         async with client_session.get(
             base_url,
             params=params,
         ) as response:
-            response.raise_for_status()
-            audible_response = AudibleSearchResponse.model_validate(
-                await response.json()
-            )
+            if response.status == 400:
+                # the series group is only a nicety; never let it break a search
+                params["response_groups"] = "media,product_attrs"
+                async with client_session.get(base_url, params=params) as plain:
+                    plain.raise_for_status()
+                    payload = await plain.json()  # pyright: ignore[reportAny]
+            else:
+                response.raise_for_status()
+                payload = await response.json()  # pyright: ignore[reportAny]
+            audible_response = AudibleSearchResponse.model_validate(payload)
     except Exception as e:
         logger.error(
             "Exception while fetching search results from Audible",
@@ -185,9 +247,10 @@ async def search_audible_books(
         )
         return []
 
-    audible_response.products = in_region_language(
-        audible_response.products, audible_region
-    )
+    if language_filter:
+        audible_response.products = in_region_language(
+            audible_response.products, audible_region
+        )
 
     # do not fetch book results we already have locally
     books = audible_response.audiobooks()

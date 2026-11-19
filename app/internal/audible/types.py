@@ -6,6 +6,7 @@ from pydantic import BaseModel
 
 from app.internal.env_settings import Settings
 from app.internal.models import Audiobook
+from app.internal.series.memo import SeriesRef, remember
 
 REFETCH_TTL = 60 * 60 * 24 * 7  # 1 week
 
@@ -48,6 +49,11 @@ class AudibleProduct(BaseModel):
     class _Author(BaseModel):
         name: str
 
+    class _Series(BaseModel):
+        asin: str | None = None
+        title: str | None = None
+        sequence: str | None = None
+
     asin: str
     authors: list[_Author] = []
     narrators: list[_Author] = []
@@ -58,6 +64,23 @@ class AudibleProduct(BaseModel):
     subtitle: str | None = None
     language: str | None = None
     """Only present when the `product_attrs` response group is requested."""
+    format_type: str | None = None
+    """'unabridged' or 'abridged'. Only with the `product_attrs` group."""
+    series: list[_Series] | None = None
+    """Only present when the `series` response group is requested."""
+
+    def series_ref(self, series_asin: str | None = None) -> SeriesRef | None:
+        """The series the book is part of. With an ASIN, only that series."""
+        for entry in self.series or []:
+            if not entry.asin or not entry.title:
+                continue
+            if series_asin is None or entry.asin == series_asin:
+                return SeriesRef(
+                    asin=entry.asin,
+                    title=entry.title,
+                    sequence=(entry.sequence or "").strip() or None,
+                )
+        return None
 
     def to_audiobook(self) -> Audiobook:
         cover_image = self.product_images.get("500")
@@ -69,6 +92,10 @@ class AudibleProduct(BaseModel):
         release_date = datetime.fromisoformat(self.release_date)
         if release_date.tzinfo is None:
             release_date = release_date.replace(tzinfo=UTC)
+
+        ref = self.series_ref()
+        if ref:
+            remember(self.asin, ref)
 
         return Audiobook(
             asin=self.asin,

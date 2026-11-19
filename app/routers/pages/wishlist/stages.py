@@ -20,6 +20,7 @@ from app.internal.models import GroupEnum
 from app.internal.retry.job import is_running, scheduled_retry
 from app.internal.retry.pool import STAGES, StageRow, get_rows
 from app.internal.retry.state import retry_config
+from app.internal.series.job import scheduled_series_check
 from app.routers.api.requests import delete_request as api_delete_request
 from app.routers.api.retry import (
     DeclineBody,
@@ -39,6 +40,8 @@ from app.util.templates import catalog_response
 # How often the scheduler looks for work.
 RETRY_CHECK_MINUTES = 10
 LIBRARY_CHECK_MINUTES = 10
+# The series check decides for itself whether it is due today.
+SERIES_CHECK_MINUTES = 20
 # A book that reached the library counts as "ready" in the top bar for this long.
 READY_DAYS = 7
 
@@ -57,6 +60,7 @@ async def lifespan(app: FastAPI):
         # the first look at the library should not wait for a whole interval
         next_run_time=datetime.now() + timedelta(seconds=20),
     )
+    scheduler.add_job(scheduled_series_check, "interval", minutes=SERIES_CHECK_MINUTES)
     scheduler.start()
     yield
     scheduler.shutdown()

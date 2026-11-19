@@ -15,6 +15,7 @@ from app.internal.audible.types import (
     in_region_language,
 )
 from app.internal.models import Audiobook
+from app.internal.series.config import series_config
 from app.util.log import logger
 
 
@@ -62,9 +63,10 @@ async def list_similar_audible_books(
             response.raise_for_status()
             sims = AudibleSimilarResponse.model_validate(await response.json())
 
-        sims.similar_products = in_region_language(
-            sims.similar_products, audible_region
-        )
+        if series_config.get_language_filter(session):
+            sims.similar_products = in_region_language(
+                sims.similar_products, audible_region
+            )
         ordered = sims.audiobooks()
     except Exception as e:
         # Fallback: approximate with author-based search
@@ -95,6 +97,7 @@ async def list_similar_audible_books(
                     num_results=num_results,
                     page=0,
                     audible_region=audible_region,
+                    language_filter=series_config.get_language_filter(session),
                 )
                 # Exclude the seed asin itself
                 ordered = [b for b in results if b.asin != asin][:num_results]

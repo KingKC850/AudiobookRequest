@@ -9,6 +9,7 @@ from app.routers.api.settings.notifications import router as notifications_route
 from app.routers.api.settings.prowlarr import router as prowlarr_router
 from app.routers.api.settings.retry import router as retry_router
 from app.routers.api.settings.security import router as security_router
+from app.routers.api.settings.series import router as series_router
 
 router = APIRouter(prefix="/settings", tags=["Settings"])
 
@@ -21,3 +22,4 @@ router.include_router(notifications_router)
 router.include_router(prowlarr_router)
 router.include_router(retry_router)
 router.include_router(security_router)
+router.include_router(series_router)

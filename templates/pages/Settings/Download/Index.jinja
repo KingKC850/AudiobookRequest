@@ -67,6 +67,13 @@
 
     <hr class="my-4 border-base-200" />
 
+    <div hx-get="{{ base_url }}/settings/series/hx-form"
+         hx-trigger="load"
+         hx-swap="outerHTML">
+    </div>
+
+    <hr class="my-4 border-base-200" />
+
     <Settings.Download.IndexerFlags indexer_flags={{ indexer_flags }} />
     <hr class="my-4 border-base-200" />
     <div class="flex flex-col gap-2">

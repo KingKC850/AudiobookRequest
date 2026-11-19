@@ -12,6 +12,7 @@ from . import (
     prowlarr,
     retry,
     security,
+    series,
     users,
 )
 
@@ -28,4 +29,5 @@ router.include_router(notification.router)
 router.include_router(prowlarr.router)
 router.include_router(retry.router)
 router.include_router(security.router)
+router.include_router(series.router)
 router.include_router(users.router)

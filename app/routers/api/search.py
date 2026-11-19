@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Security
 from sqlmodel import Session
 
 from app.internal.audible.search import (
+    SearchSort,
     get_search_suggestions,
     search_audible_books,
     upsert_books,
@@ -17,6 +18,7 @@ from app.internal.audible.types import (
 from app.internal.audiobookshelf.client import abs_mark_downloaded_flags
 from app.internal.auth.authentication import AnyAuth, DetailedUser
 from app.internal.models import AudiobookWithRequests
+from app.internal.series.config import series_config
 from app.util.connection import get_connection
 from app.util.db import get_session
 
@@ -38,18 +40,35 @@ async def search_books(
         audible_region_type | None,
         Query(description="Audible region. Defaults to the configured region."),
     ] = None,
+    title: Annotated[
+        str | None, Query(description="Only books with this in the title.")
+    ] = None,
+    author: Annotated[
+        str | None, Query(description="Only books by this author.")
+    ] = None,
+    narrator: Annotated[
+        str | None, Query(description="Only books read by this narrator.")
+    ] = None,
+    sort: Annotated[
+        SearchSort, Query(description="Order of the results.")
+    ] = "relevance",
 ):
     if region is None:
         region = get_region_from_settings()
     if audible_regions.get(region) is None:
         raise HTTPException(status_code=400, detail="Invalid region")
-    if query:
+    if query or title or author or narrator:
         results = await search_audible_books(
             client_session=client_session,
-            query=query,
+            query=query or "",
             num_results=num_results,
             page=page,
             audible_region=region,
+            title=title,
+            author=author,
+            narrator=narrator,
+            sort=sort,
+            language_filter=series_config.get_language_filter(session),
         )
     else:
         results = []

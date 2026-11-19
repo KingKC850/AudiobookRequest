@@ -1,0 +1,188 @@
+{#def
+    user: DetailedUser,
+    view: SeriesView,
+    rows: list[SeriesRow],
+    default_mode: str,
+    enabled: bool,
+    auto_start_download: bool,
+#}
+
+{% set watched = view.watched %}
+{% set plan = view.plan %}
+{% set can_watch = user.can_download() %}
+{% set actions = base_url ~ "/series/" ~ view.info.asin %}
+{% set badges = {"have": "badge-success", "request": "badge-info", "upcoming": "badge-warning", "skipped": "badge-ghost"} %}
+
+<div id="series-body" class="flex flex-col gap-4">
+    <div class="flex flex-col gap-3 rounded-box border border-base-300 p-3 sm:p-4">
+        {% if watched and watched.confirmed %}
+            <div class="flex flex-wrap items-center justify-between gap-2">
+                <div class="flex flex-col">
+                    <span class="font-semibold">
+                        <span class="badge badge-success mr-1">Watching</span>
+                        {{ watched.mode_text }}
+                    </span>
+                    <span class="text-xs opacity-70">
+                        Added by {{ watched.added_by }}. Last checked {{ watched.last_checked_text }}{% if watched.last_result %}: {{ watched.last_result }}{% endif %}.
+                        {% if watched.upcoming %}Next announced: {{ watched.upcoming }}.{% endif %}
+                        {% if not enabled %}The daily check is turned off in Settings.{% endif %}
+                    </span>
+                </div>
+                {% if can_watch %}
+                    <div class="flex flex-wrap items-center gap-2">
+                        <form class="join"
+                              hx-post="{{ actions }}/hx-watch"
+                              hx-target="#series-body"
+                              hx-swap="outerHTML"
+                              hx-disabled-elt="find button">
+                            <select name="mode" class="select select-sm join-item" aria-label="Mode">
+                                <option value="new"
+                                        {% if watched.mode.__eq__("new") %}selected="selected"{% endif %}>New only</option>
+                                <option value="fill"
+                                        {% if watched.mode.__eq__("fill") %}selected="selected"{% endif %}>Fill in</option>
+                            </select>
+                            <button class="btn btn-sm join-item" type="submit">Change</button>
+                        </form>
+                        <button class="btn btn-sm btn-ghost"
+                                hx-delete="{{ actions }}/hx-watch"
+                                hx-target="#series-body"
+                                hx-swap="outerHTML"
+                                hx-disabled-elt="this">
+                            Stop watching
+                        </button>
+                    </div>
+                {% endif %}
+            </div>
+            {% if plan.request %}
+                <p class="text-sm">
+                    {{ plan.request | length }} missing book{% if plan.request | length != 1 %}s{% endif %} will be requested at the next daily check.
+                </p>
+            {% endif %}
+        {% elif watched %}
+            <div class="flex flex-col gap-2">
+                <span class="font-semibold">
+                    <span class="badge badge-warning mr-1">Preview</span>
+                    {{ watched.mode_text }}: nothing has been requested yet
+                </span>
+                {% if plan.request %}
+                    <p class="text-sm">
+                        Confirming requests {{ plan.request | length }} book{% if plan.request | length != 1 %}s{% endif %} now:
+                    </p>
+                    <ul class="text-sm list-disc pl-5">
+                        {% for book in plan.request %}
+                            <li>
+                                {% if book.number_text %}Book {{ book.number_text }}:{% endif %}
+                                {{ book.title }}
+                                {% if book.narrators %}
+                                    <span class="opacity-60">read by {{ book.narrators[:2] | join(", ") }}</span>
+                                {% endif %}
+                            </li>
+                        {% endfor %}
+                    </ul>
+                {% else %}
+                    <p class="text-sm">
+                        Nothing is missing right now. After you confirm, new books are requested as they come out.
+                    </p>
+                {% endif %}
+                {% if plan.upcoming_text %}
+                    <p class="text-xs opacity-70">
+                        Next announced: {{ plan.upcoming_text }}. It is requested once it is out.
+                    </p>
+                {% endif %}
+                {% if plan.skipped %}
+                    <details class="text-xs">
+                        <summary class="cursor-pointer opacity-70">
+                            {{ plan.skipped | length }} title{% if plan.skipped | length != 1 %}s{% endif %} left out
+                        </summary>
+                        <ul class="list-disc pl-5 pt-1">
+                            {% for item in plan.skipped %}
+                                <li>
+                                    {{ item.book.title }}
+                                    <span class="opacity-60">({{ item.reason }})</span>
+                                </li>
+                            {% endfor %}
+                        </ul>
+                    </details>
+                {% endif %}
+                {% if can_watch %}
+                    <div class="flex flex-wrap items-center gap-2 pt-1">
+                        <button class="btn btn-sm btn-primary"
+                                hx-post="{{ actions }}/hx-confirm"
+                                hx-target="#series-body"
+                                hx-swap="outerHTML"
+                                hx-disabled-elt="this">
+                            {% if plan.request %}
+                                Confirm and request
+                            {% else %}
+                                Confirm
+                            {% endif %}
+                        </button>
+                        <form class="join"
+                              hx-post="{{ actions }}/hx-watch"
+                              hx-target="#series-body"
+                              hx-swap="outerHTML"
+                              hx-disabled-elt="find button">
+                            <select name="mode" class="select select-sm join-item" aria-label="Mode">
+                                <option value="new"
+                                        {% if watched.mode.__eq__("new") %}selected="selected"{% endif %}>New only</option>
+                                <option value="fill"
+                                        {% if watched.mode.__eq__("fill") %}selected="selected"{% endif %}>Fill in</option>
+                            </select>
+                            <button class="btn btn-sm join-item" type="submit">Preview</button>
+                        </form>
+                        <button class="btn btn-sm btn-ghost"
+                                hx-delete="{{ actions }}/hx-watch"
+                                hx-target="#series-body"
+                                hx-swap="outerHTML"
+                                hx-disabled-elt="this">
+                            Cancel
+                        </button>
+                    </div>
+                {% endif %}
+            </div>
+        {% else %}
+            <div class="flex flex-wrap items-center justify-between gap-2">
+                <div class="flex flex-col">
+                    <span class="font-semibold">Not watched</span>
+                    <span class="text-xs opacity-70">
+                        Watch a series to have its books requested for you. <b>New only</b> asks for books after the newest one you have. <b>Fill in</b> also asks for the ones you are missing. You see a preview before anything is requested.
+                    </span>
+                </div>
+                {% if can_watch %}
+                    <form class="join"
+                          hx-post="{{ actions }}/hx-watch"
+                          hx-target="#series-body"
+                          hx-swap="outerHTML"
+                          hx-disabled-elt="find button">
+                        <input type="hidden" name="region" value="{{ view.info.region }}" />
+                        <input type="hidden" name="title" value="{{ view.info.title }}" />
+                        <select name="mode" class="select select-sm join-item" aria-label="Mode">
+                            <option value="new"
+                                    {% if default_mode.__eq__("new") %}selected="selected"{% endif %}>New only</option>
+                            <option value="fill"
+                                    {% if default_mode.__eq__("fill") %}selected="selected"{% endif %}>Fill in</option>
+                        </select>
+                        <button class="btn btn-sm btn-primary join-item" type="submit">Watch</button>
+                    </form>
+                {% endif %}
+            </div>
+        {% endif %}
+    </div>
+
+    <div class="grid gap-1 gap-y-3 sm:gap-y-4 sm:gap-2 p-1 grid-flow-row grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 2xl:grid-cols-7">
+        {% for row in rows %}
+            <div class="flex flex-col gap-1">
+                <div class="flex items-center gap-1 h-6 overflow-hidden">
+                    {% if row.book.number_text %}
+                        <span class="badge badge-sm badge-neutral shrink-0">#{{ row.book.number_text }}</span>
+                    {% endif %}
+                    {% if row.note %}
+                        <span class="badge badge-sm {{ badges[row.status] }} min-w-0 shrink justify-start"
+                              title="{{ row.note }}"><span class="truncate">{{ row.note }}</span></span>
+                    {% endif %}
+                </div>
+                <BookCard book_with_requests={{ row.card }} auto_start_download={{ auto_start_download }} region={{ view.info.region }} user={{ user }} />
+            </div>
+        {% endfor %}
+    </div>
+</div>

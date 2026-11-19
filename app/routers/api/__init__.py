@@ -8,6 +8,7 @@ from app.routers.api.recommendations import router as recommendations_router
 from app.routers.api.requests import router as requests_router
 from app.routers.api.retry import router as retry_router
 from app.routers.api.search import router as search_router
+from app.routers.api.series import router as series_router
 from app.routers.api.settings import router as settings_router
 from app.routers.api.users import router as users_router
 from app.util.db import get_session
@@ -19,6 +20,7 @@ router.include_router(recommendations_router)
 router.include_router(requests_router)
 router.include_router(retry_router)
 router.include_router(search_router)
+router.include_router(series_router)
 router.include_router(settings_router)
 router.include_router(users_router)
 

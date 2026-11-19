@@ -4,6 +4,7 @@ from aiohttp import ClientSession
 from fastapi import APIRouter, Depends, Query, Security
 from sqlmodel import Session
 
+from app.internal.audible.search import SORT_LABELS, SearchSort
 from app.internal.audible.types import audible_region_type, get_region_from_settings
 from app.internal.auth.authentication import ABRAuth, DetailedUser
 from app.internal.models import GroupEnum
@@ -33,6 +34,10 @@ async def read_search(
     num_results: int = 20,
     page: int = 0,
     region: audible_region_type | None = None,
+    title: str | None = None,
+    author: str | None = None,
+    narrator: str | None = None,
+    sort: SearchSort = "relevance",
 ):
     if region is None:
         region = get_region_from_settings()
@@ -45,6 +50,10 @@ async def read_search(
             num_results=num_results,
             page=page,
             region=region,
+            title=title,
+            author=author,
+            narrator=narrator,
+            sort=sort,
         )
 
         prowlarr_configured = prowlarr_config.is_valid(session)
@@ -53,6 +62,12 @@ async def read_search(
             "Search.Index",
             user=user,
             search_term=query or "",
+            title_term=title or "",
+            author_term=author or "",
+            narrator_term=narrator or "",
+            sort=sort,
+            sort_labels=SORT_LABELS,
+            searched=bool(query or title or author or narrator),
             search_results=results,
             selected_region=region,
             page=page,

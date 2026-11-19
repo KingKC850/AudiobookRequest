@@ -7,15 +7,37 @@
     auto_start_download: bool,
     prowlarr_configured: bool,
     suggestions: list[str] = [],
+    title_term: str = "",
+    author_term: str = "",
+    narrator_term: str = "",
+    sort: str = "relevance",
+    sort_labels: dict[str, str] = {},
+    searched: bool = False,
 #}
 
 <BaseLayout title="Search" user={{ user }}>
 <script>
-    const onSearch = () => {
+    const onSearch = form => {
+        // leave empty filters and the default order out of the address
+        for (const el of form.querySelectorAll("input[name], select[name]")) {
+            if (!el.value || (el.name === "sort" && el.value === "relevance")) {
+                el.disabled = true;
+            }
+        }
         document.getElementById("search").disabled = true;
         document.getElementById("search-text").style.display = "none";
         document.getElementById("search-spinner").style.display = "inline-block";
     };
+    // coming back with the browser's back button: the form must be usable again
+    window.addEventListener("pageshow", () => {
+        for (const el of document.querySelectorAll("form [name]:disabled, #search")) {
+            el.disabled = false;
+        }
+        const text = document.getElementById("search-text");
+        const spinner = document.getElementById("search-spinner");
+        if (text) text.style.display = "";
+        if (spinner) spinner.style.display = "";
+    });
     const onPageChange = page => {
         const url = new URL(window.location);
         url.searchParams.set("page", page);
@@ -27,46 +49,106 @@
         <h1 class="text-3xl font-bold text-left">
             Search
         </h1>
-        <a preload
-           href="{{ base_url }}/search/manual"
-           title="Manually add request"
-           class="btn btn- flex items-center justify-center">
-            Manual
-            <icons.Plus />
-        </a>
+        <div class="flex items-center gap-2">
+            <a preload
+               href="{{ base_url }}/series"
+               title="Series that are watched for new books"
+               class="btn flex items-center justify-center">
+                Series
+                <icons.List />
+            </a>
+            <a preload
+               href="{{ base_url }}/search/manual"
+               title="Manually add request"
+               class="btn btn- flex items-center justify-center">
+                Manual
+                <icons.Plus />
+            </a>
+        </div>
     </div>
     <div class="flex flex-col gap-4 justify-start items-center">
-        <form class="flex items-start w-full join"
+        <form class="flex flex-col gap-2 w-full"
               method="get"
-              onsubmit="onSearch();">
-            <input name="q"
-                   class="input join-item focus:z-10"
-                   placeholder="Book name..."
-                   {% if not search_term %}autofocus{% endif %}
-                   value="{{ search_term }}"
-                   spellcheck="false"
-                   autocomplete="off"
-                   list="search-suggestions"
-                   hx-get="{{ base_url }}/search/hx-suggestions?region={{ selected_region }}"
-                   hx-target="#search-suggestions"
-                   hx-swap="outerHTML"
-                   hx-trigger="keyup changed delay:100ms" />
+              onsubmit="onSearch(this);">
+            <div class="flex items-start w-full join">
+                <input name="q"
+                       class="input join-item focus:z-10"
+                       placeholder="Book name..."
+                       {% if not searched %}autofocus{% endif %}
+                       value="{{ search_term }}"
+                       spellcheck="false"
+                       autocomplete="off"
+                       list="search-suggestions"
+                       hx-get="{{ base_url }}/search/hx-suggestions?region={{ selected_region }}"
+                       hx-target="#search-suggestions"
+                       hx-swap="outerHTML"
+                       hx-trigger="keyup changed delay:100ms" />
 
-            <Search.Suggestions id="search-suggestions" suggestions={{ suggestions }} />
+                <Search.Suggestions id="search-suggestions" suggestions={{ suggestions }} />
 
-            <select class="select join-item max-w-16 sm:max-w-20 focus:z-10"
-                    name="region">
-                {% for region in audible_regions.keys() %}
-                    <option value="{{ region }}"
-                            {% if region.__eq__(selected_region) %}selected="selected"{% endif %}>
-                        {{ region }}
-                    </option>
-                {% endfor %}
-            </select>
-            <button id="search" class="btn btn-primary join-item" type="submit">
-                <span id="search-text">Search</span>
-                <span id="search-spinner" class="loading hidden"></span>
-            </button>
+                <select class="select join-item max-w-16 sm:max-w-20 focus:z-10"
+                        name="region">
+                    {% for region in audible_regions.keys() %}
+                        <option value="{{ region }}"
+                                {% if region.__eq__(selected_region) %}selected="selected"{% endif %}>
+                            {{ region }}
+                        </option>
+                    {% endfor %}
+                </select>
+                <button id="search" class="btn btn-primary join-item" type="submit">
+                    <span id="search-text">Search</span>
+                    <span id="search-spinner" class="loading hidden"></span>
+                </button>
+            </div>
+            <details class="w-full text-sm"
+                     {% if title_term or author_term or narrator_term or not sort.__eq__("relevance") %}open{% endif %}>
+                <summary class="cursor-pointer opacity-70 select-none">
+                    Filters and sorting
+                </summary>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-2">
+                    <label class="flex flex-col gap-1">
+                        <span class="text-xs opacity-70">Title</span>
+                        <input name="title"
+                               class="input input-sm w-full"
+                               placeholder="Words in the title"
+                               value="{{ title_term }}"
+                               spellcheck="false"
+                               autocomplete="off" />
+                    </label>
+                    <label class="flex flex-col gap-1">
+                        <span class="text-xs opacity-70">Author</span>
+                        <input name="author"
+                               class="input input-sm w-full"
+                               placeholder="Author name"
+                               value="{{ author_term }}"
+                               spellcheck="false"
+                               autocomplete="off" />
+                    </label>
+                    <label class="flex flex-col gap-1">
+                        <span class="text-xs opacity-70">Narrator</span>
+                        <input name="narrator"
+                               class="input input-sm w-full"
+                               placeholder="Narrator name"
+                               value="{{ narrator_term }}"
+                               spellcheck="false"
+                               autocomplete="off" />
+                    </label>
+                    <label class="flex flex-col gap-1">
+                        <span class="text-xs opacity-70">Sort by</span>
+                        <select name="sort" class="select select-sm w-full">
+                            {% for key, label in sort_labels.items() %}
+                                <option value="{{ key }}"
+                                        {% if key.__eq__(sort) %}selected="selected"{% endif %}>
+                                    {{ label }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </label>
+                </div>
+                <p class="text-xs opacity-60 pt-2">
+                    Each filter narrows the search to that field. They work with or without the search box. To browse a series, open it from the series name under any of its books.
+                </p>
+            </details>
         </form>
         {% block book_results %}
             <div id="book-results"
@@ -97,7 +179,7 @@
         {% endif %}
         {% if not search_results %}
             <div class="pt-8 flex flex-col gap-1 items-center justify-center text-center max-w-[20rem]">
-                {% if search_term %}
+                {% if searched %}
                     <span class="text-xl font-semibold">No results found</span>
                     <span class="text-sm">No audiobooks were found. Do note, that internally Audible is used for
                         searching. If the book doesn't exist on Audible it'll have to be added
